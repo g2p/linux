@@ -223,11 +223,17 @@ struct bkey {
 #define BKEY_PADDED(key)					\
 	union { struct bkey key; uint64_t key ## _pad[BKEY_PAD]; }
 
-/* Version 1: Backing device
+/* Version 0: Cache device
+ * Version 1: Backing device
  * Version 2: Seed pointer into btree node checksum
- * Version 3: New UUID format
+ * Version 3: Cache device with new UUID format
+ * Version 4: Backing device with data offset
  */
-#define BCACHE_SB_VERSION	3
+#define BCACHE_SB_VERSION_CDEV			0
+#define BCACHE_SB_VERSION_BDEV			1
+#define BCACHE_SB_VERSION_CDEV_WITH_UUID	3
+#define BCACHE_SB_VERSION_BDEV_WITH_OFFSET	4
+#define BCACHE_SB_MAX_VERSION			4
 
 #define SB_SECTOR		8
 #define SB_SIZE			4096
@@ -236,13 +242,12 @@ struct bkey {
 /* SB_JOURNAL_BUCKETS must be divisible by BITS_PER_LONG */
 #define MAX_CACHES_PER_SET	8
 
-#define BDEV_DATA_START		16	/* sectors */
+#define BDEV_DATA_START_DEFAULT	16	/* sectors */
 
 struct cache_sb {
 	uint64_t		csum;
 	uint64_t		offset;	/* sector where this sb was written */
 	uint64_t		version;
-#define CACHE_BACKING_DEV	1
 
 	uint8_t			magic[16];
 
@@ -485,6 +490,7 @@ struct cached_dev {
 	 * where it's at.
 	 */
 	sector_t		last_read;
+	sector_t		data_start_sector;
 
 	/* Number of writeback bios in flight */
 	atomic_t		in_flight;
@@ -860,6 +866,13 @@ static inline bool key_merging_disabled(struct cache_set *c)
 	return 0;
 #endif
 }
+
+
+static inline bool SB_IS_BDEV(const struct cache_sb *sb) {
+	return sb->version == BCACHE_SB_VERSION_BDEV
+		|| sb->version == BCACHE_SB_VERSION_BDEV_WITH_OFFSET;
+}
+
 
 struct bbio {
 	unsigned		submit_time_us;

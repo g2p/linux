@@ -148,7 +148,7 @@ static const char *read_super(struct cache_sb *sb, struct block_device *bdev,
 		goto err;
 
 	err = "Unsupported superblock version";
-	if (sb->version > BCACHE_SB_VERSION)
+	if (sb->version > BCACHE_SB_MAX_VERSION)
 		goto err;
 
 	err = "Bad block/bucket size";
@@ -168,7 +168,7 @@ static const char *read_super(struct cache_sb *sb, struct block_device *bdev,
 	if (get_capacity(bdev->bd_disk) < sb->bucket_size * sb->nbuckets)
 		goto err;
 
-	if (sb->version == CACHE_BACKING_DEV)
+	if (SB_IS_BDEV(sb))
 		goto out;
 
 	err = "Bad UUID";
@@ -286,7 +286,7 @@ void bcache_write_super(struct cache_set *c)
 	for_each_cache(ca, c, i) {
 		struct bio *bio = &ca->sb_bio;
 
-		ca->sb.version		= BCACHE_SB_VERSION;
+		ca->sb.version		= BCACHE_SB_VERSION_CDEV_WITH_UUID;
 		ca->sb.seq		= c->sb.seq;
 		ca->sb.last_mount	= c->sb.last_mount;
 
@@ -1047,9 +1047,20 @@ static const char *register_bdev(struct cache_sb *sb, struct page *sb_page,
 	dc->bdev = bdev;
 	dc->bdev->bd_holder = dc;
 
+	err = "bad start sector";
+	if (sb->version == BCACHE_SB_VERSION_BDEV) {
+		dc->data_start_sector = BDEV_DATA_START_DEFAULT;
+	} else {
+		if (sb->keys < 1)
+			goto err;
+		dc->data_start_sector = sb->d[0];
+		if (dc->data_start_sector < BDEV_DATA_START_DEFAULT)
+			goto err;
+	}
+
 	g = dc->disk.disk;
 
-	set_capacity(g, dc->bdev->bd_part->nr_sects - 16);
+	set_capacity(g, dc->bdev->bd_part->nr_sects - dc->data_start_sector);
 
 	bch_cached_dev_request_init(dc);
 
@@ -1802,7 +1813,7 @@ static ssize_t register_bcache(struct kobject *k, struct kobj_attribute *attr,
 	if (err)
 		goto err_close;
 
-	if (sb->version == CACHE_BACKING_DEV) {
+	if (SB_IS_BDEV(sb)) {
 		struct cached_dev *dc = kzalloc(sizeof(*dc), GFP_KERNEL);
 
 		err = register_bdev(sb, sb_page, bdev, dc);

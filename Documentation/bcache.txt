@@ -224,6 +224,10 @@ readahead
   1M, it will round cache miss reads up to that size, but without overlapping
   existing cache entries.
 
+resize
+  Write "max" to this file after resizing the underlying device.
+  bcache will update its device size to match.
+
 running
   1 if bcache is running (i.e. whether the /dev/bcache device exists, whether
   it's in passthrough mode or caching).

@@ -846,6 +846,14 @@ static void calc_cached_dev_sectors(struct cache_set *c)
 	c->cached_dev_sectors = sectors;
 }
 
+void bch_cached_dev_resize(struct cached_dev *dc)
+{
+	set_capacity(
+		dc->disk.disk,
+		dc->bdev->bd_part->nr_sects - dc->sb.data_offset);
+	revalidate_disk(dc->disk.disk);
+}
+
 void bch_cached_dev_run(struct cached_dev *dc)
 {
 	struct bcache_device *d = &dc->disk;

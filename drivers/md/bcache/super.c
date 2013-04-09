@@ -766,6 +766,13 @@ static void calc_cached_dev_sectors(struct cache_set *c)
 	c->cached_dev_sectors = sectors;
 }
 
+void bch_cached_dev_resize(struct cached_dev *dc)
+{
+	set_capacity(
+		dc->disk.disk,
+		dc->bdev->bd_part->nr_sects - dc->data_start_sector);
+}
+
 void bch_cached_dev_run(struct cached_dev *dc)
 {
 	struct bcache_device *d = &dc->disk;
@@ -1036,7 +1043,6 @@ static const char *register_bdev(struct cache_sb *sb, struct page *sb_page,
 {
 	char name[BDEVNAME_SIZE];
 	const char *err = "cannot allocate memory";
-	struct gendisk *g;
 	struct cache_set *c;
 
 	if (!dc || cached_dev_init(dc, sb->block_size << 9) != 0)
@@ -1058,10 +1064,7 @@ static const char *register_bdev(struct cache_sb *sb, struct page *sb_page,
 			goto err;
 	}
 
-	g = dc->disk.disk;
-
-	set_capacity(g, dc->bdev->bd_part->nr_sects - dc->data_start_sector);
-
+	bch_cached_dev_resize(dc);
 	bch_cached_dev_request_init(dc);
 
 	err = "error creating kobject";

@@ -27,6 +27,7 @@ write_attribute(clear_stats);
 write_attribute(trigger_gc);
 write_attribute(prune_cache);
 write_attribute(flash_vol_create);
+write_attribute(resize);
 
 read_attribute(bucket_size);
 read_attribute(block_size);
@@ -201,6 +202,15 @@ STORE(__cached_dev)
 	    strtoul_or_return(buf))
 		bch_cached_dev_run(dc);
 
+	if (attr == &sysfs_resize) {
+		if (!strcmp(buf, "max") || !strcmp(buf, "max\n"))
+			bch_cached_dev_resize(dc);
+		else
+			/* Reserved for future use, if someone needs sizes below the max.
+			 * memparse units would be consistent with fs resizing tools. */
+			return -EINVAL;
+	}
+
 	if (attr == &sysfs_cache_mode) {
 		ssize_t v = bch_read_string_list(buf, bch_cache_modes + 1);
 
@@ -288,6 +298,7 @@ static struct attribute *bch_cached_dev_files[] = {
 	&sysfs_sequential_merge,
 	&sysfs_clear_stats,
 	&sysfs_running,
+	&sysfs_resize,
 	&sysfs_state,
 	&sysfs_label,
 	&sysfs_readahead,

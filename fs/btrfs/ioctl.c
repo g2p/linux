@@ -2664,6 +2664,18 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 	off = args->logical_offset;
 	len = args->length;
 
+	/*
+	 * Since we have to memcmp the data to make sure it does actually
+	 * match eachother we need to allocate 2 buffers to handle this. So
+	 * limit the blocksize to 1 megabyte to make sure nobody abuses this.
+	 *
+	 * Instead of erroring though, we limit the length value. Userspace
+	 * can easily figure this out as we return the bytes deduped for each
+	 * operation.
+	 */ 
+	if (len > 1 * 1024 * 1024)
+		len = 1 * 1024 * 1024;
+
 	ret = -EINVAL;
 	if (off + len > src->i_size || off + len < off)
 		goto out;
@@ -2672,15 +2684,6 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 
 	ret = -EISDIR;
 	if (S_ISDIR(src->i_mode))
-		goto out;
-
-	/*
-	 * Since we have to memcmp the data to make sure it does actually match
-	 * eachother we need to allocate 2 buffers to handle this.  So limit the
-	 * blocksize to 1 megabyte to make sure nobody abuses this.
-	 */ 
-	ret = -ENOMEM;
-	if (len > 1 * 1024 * 1024)
 		goto out;
 
 	ret = 0;

@@ -2630,7 +2630,7 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 			   sizeof(tmp)))
 		return -EFAULT;
 
-	args_size = sizeof(tmp) + (tmp.total_files *
+	args_size = sizeof(tmp) + (tmp.dest_count *
 			sizeof(struct btrfs_ioctl_same_extent_info));
 
 	/* Keep size of ioctl argument sane */
@@ -2650,12 +2650,12 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 	if (memcmp(&tmp, args, sizeof(tmp)))
 		goto out;
 
-	if ((sizeof(tmp) + (sizeof(*info) * args->total_files)) > args_size)
+	if ((sizeof(tmp) + (sizeof(*info) * args->dest_count)) > args_size)
 		goto out;
 
 	/* pre-format 'out' fields to sane default values */
 	args->files_deduped = 0;
-	for (i = 0; i < args->total_files; i++) {
+	for (i = 0; i < args->dest_count; i++) {
 		info = &args->info[i];
 		info->bytes_deduped = 0;
 		info->status = 0;
@@ -2687,7 +2687,7 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 		goto out;
 
 	ret = 0;
-	for (i = 0; i < args->total_files; i++) {
+	for (i = 0; i < args->dest_count; i++) {
 		u64 dest_off;
 
 		info = &args->info[i];

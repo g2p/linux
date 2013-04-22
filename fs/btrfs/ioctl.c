@@ -2654,7 +2654,6 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 		goto out;
 
 	/* pre-format 'out' fields to sane default values */
-	args->files_deduped = 0;
 	for (i = 0; i < args->dest_count; i++) {
 		info = &args->info[i];
 		info->bytes_deduped = 0;
@@ -2727,13 +2726,11 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 
 		info->status = btrfs_extent_same(src, off, len, dst,
 						 info->logical_offset);
-		if (info->status == 0) {
+		if (info->status == 0)
 			info->bytes_deduped = len;
-			args->files_deduped++;
-		} else {
+		else
 			printk(KERN_ERR "error %d from btrfs_extent_same\n",
 				info->status);
-		}
 next:
 		fput(dst_file);
 		dst_file = NULL;

@@ -325,8 +325,8 @@ struct btrfs_ioctl_same_args {
 	__u64 logical_offset;	/* in - start of extent in source */
 	__u64 length;		/* in - length of extent */
 	__u16 dest_count;	/* in - total elements in info array */
-	__u16 files_deduped;	/* out - number of files that got deduped */
-	__u32 reserved;
+	__u16 reserved1;
+	__u32 reserved2;
 	struct btrfs_ioctl_same_extent_info info[0];
 };
 

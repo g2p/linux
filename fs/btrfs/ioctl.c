@@ -2609,6 +2609,9 @@ out:
 	return ret;
 }
 
+#define BTRFS_MAX_DEDUPE_LEN	(16 * 1024 * 1024)
+#define BTRFS_ONE_DEDUPE_LEN	(1 * 1024 * 1024)
+
 static long btrfs_ioctl_file_extent_same(struct file *file,
 					 void __user *argp)
 {
@@ -2664,16 +2667,11 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 	len = args->length;
 
 	/*
-	 * Since we have to memcmp the data to make sure it does actually
-	 * match eachother we need to allocate 2 buffers to handle this. So
-	 * limit the blocksize to 1 megabyte to make sure nobody abuses this.
-	 *
-	 * Instead of erroring though, we limit the length value. Userspace
-	 * can easily figure this out as we return the bytes deduped for each
-	 * operation.
-	 */ 
-	if (len > 1 * 1024 * 1024)
-		len = 1 * 1024 * 1024;
+	 * Limit the total length we will dedupe for each operation. 
+	 * This is intended to bound the entire ioctl to something sane.
+	 */
+	if (len > BTRFS_MAX_DEDUPE_LEN)
+		len = BTRFS_MAX_DEDUPE_LEN;
 
 	ret = -EINVAL;
 	if (off + len > src->i_size || off + len < off)
@@ -2688,6 +2686,8 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 	ret = 0;
 	for (i = 0; i < args->dest_count; i++) {
 		u64 dest_off;
+		u64 src_off;
+		u64 op_len;
 
 		info = &args->info[i];
 
@@ -2724,13 +2724,39 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 		if (!IS_ALIGNED(dest_off, bs))
 			goto next;
 
-		info->status = btrfs_extent_same(src, off, len, dst,
-						 info->logical_offset);
-		if (info->status == 0)
-			info->bytes_deduped = len;
-		else
-			printk(KERN_ERR "error %d from btrfs_extent_same\n",
-				info->status);
+		/*
+		 * The purpose of this loop is to limit the number of
+		 * bytes we dedupe during a single call to
+		 * btrfs_extent_same().
+		 *
+		 * In order to memcmp the data we have to allocate a
+		 * pair of buffers. We don't want to allocate too
+		 * large a buffer, so limiting the size for each
+		 * dedupe is an easy way to do this.
+		 */
+		src_off = off;
+		op_len = len;
+		while (op_len) {
+			u64 tmp_len;
+
+			tmp_len = op_len;
+			if (op_len > BTRFS_ONE_DEDUPE_LEN)
+				tmp_len = BTRFS_ONE_DEDUPE_LEN;
+
+			info->status = btrfs_extent_same(src, src_off, tmp_len,
+							 dst, dest_off);
+			if (info->status == 0) {
+				info->bytes_deduped += tmp_len;
+			} else {
+				printk(KERN_ERR "error %d from btrfs_extent_same\n",
+				       info->status);
+				break;
+			}
+			dest_off += tmp_len;
+			src_off += tmp_len;
+			op_len -= tmp_len;
+		}
+
 next:
 		fput(dst_file);
 		dst_file = NULL;

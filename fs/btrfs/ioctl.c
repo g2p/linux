@@ -2711,12 +2711,6 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 			goto next;
 		}
 
-		if (BTRFS_I(dst)->root != BTRFS_I(src)->root) {
-			printk(KERN_ERR "btrfs: cannot dedup across subvolumes"
-			       " %lld\n", info->fd);
-			goto next;
-		}
-
 		dest_off = info->logical_offset;
 
 		if (dest_off + len > dst->i_size || dest_off + len < dest_off)

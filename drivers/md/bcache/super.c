@@ -748,7 +748,8 @@ static void bcache_device_free(struct bcache_device *d)
 	closure_debug_destroy(&d->cl);
 }
 
-static int bcache_device_init(struct bcache_device *d, unsigned block_size)
+static int bcache_device_init(struct bcache_device *d, unsigned block_size,
+			      unsigned logical_size)
 {
 	struct request_queue *q;
 
@@ -777,7 +778,7 @@ static int bcache_device_init(struct bcache_device *d, unsigned block_size)
 	q->limits.max_segments		= BIO_MAX_PAGES;
 	q->limits.max_discard_sectors	= UINT_MAX;
 	q->limits.io_min		= block_size;
-	q->limits.logical_block_size	= block_size;
+	q->limits.logical_block_size	= logical_size;
 	q->limits.physical_block_size	= block_size;
 	set_bit(QUEUE_FLAG_NONROT,	&d->disk->queue->queue_flags);
 	set_bit(QUEUE_FLAG_DISCARD,	&d->disk->queue->queue_flags);
@@ -1077,7 +1078,7 @@ static int cached_dev_init(struct cached_dev *dc, unsigned block_size)
 		hlist_add_head(&io->hash, dc->io_hash + RECENT_IO);
 	}
 
-	ret = bcache_device_init(&dc->disk, block_size);
+	ret = bcache_device_init(&dc->disk, block_size, q->limits.logical_block_size);
 	if (ret)
 		return ret;
 
@@ -1176,7 +1177,7 @@ static int flash_dev_run(struct cache_set *c, struct uuid_entry *u)
 
 	kobject_init(&d->kobj, &bch_flash_dev_ktype);
 
-	if (bcache_device_init(d, block_bytes(c)))
+	if (bcache_device_init(d, block_bytes(c), 512))
 		goto err;
 
 	bcache_device_attach(d, c, u - c->uuids);

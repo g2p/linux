@@ -2642,12 +2642,10 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 	u64 bs = BTRFS_I(src)->root->fs_info->sb->s_blocksize;
 	char *src_buffer = NULL;
 	char *dst_buffer = NULL;
+	bool is_admin = capable(CAP_SYS_ADMIN);
 
 	if (!(file->f_mode & FMODE_READ))
 		return -EINVAL;
-
-	if (btrfs_root_readonly(BTRFS_I(src)->root))
-		return -EROFS;
 
 	ret = mnt_want_write_file(file);
 	if (ret)
@@ -2735,7 +2733,7 @@ static long btrfs_ioctl_file_extent_same(struct file *file,
 			continue;
 		}
 
-		if (!(dst_file->f_mode & FMODE_WRITE)) {
+		if (!(is_admin || (dst_file->f_mode & FMODE_WRITE))) {
 			info->status = -EINVAL;
 			goto next;
 		}
